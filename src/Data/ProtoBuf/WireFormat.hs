@@ -142,11 +142,11 @@ module Data.ProtoBuf.WireFormat
     ) where
 
 
-import Data.Binary.Get (Get, getLazyByteString, getWord8, getWord32le, getWord64le, isEmpty, runGetOrFail)
+import Data.Binary.Get (Get, getByteString, getWord8, getWord32le, getWord64le, isEmpty, runGetOrFail)
 import Data.Binary.IEEE754 (getFloat32le, getFloat64le, putFloat32le, putFloat64le)
-import Data.Binary.Put ( Put, putLazyByteString, putWord8, putWord32le, putWord64le, runPut)
+import Data.Binary.Put ( Put, putByteString, putWord8, putWord32le, putWord64le, runPut)
 import Data.Bits (Bits, (.|.), (.&.), shiftL, shiftR, setBit, testBit)
-import Data.ByteString.Lazy (ByteString)
+import Data.ByteString (ByteString)
 import Data.Foldable (forM_)
 import Data.Int (Int32, Int64)
 import Data.ProtoBuf.Default (Default(..))
@@ -158,10 +158,11 @@ import Data.ProtoBuf.WireMessage (WireMessage(..))
 import Data.ProtoBuf.WireTag (fromWireTag, toWireTag, WireTag(..))
 import Data.ProtoBuf.WireType (fromWireType, toWireType, WireType(..))
 import Data.Sequence (Seq, (|>))
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy.Encoding (decodeUtf8', encodeUtf8)
+import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8', encodeUtf8)
 import Data.Word (Word8, Word32, Word64)
 
+import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ProtoBuf.ZigZag as ZZ
 import qualified Data.Sequence        as Seq
@@ -175,7 +176,7 @@ import qualified Data.Set             as Set
 -- > decCustomType :: ByteString -> Either String CustomType
 -- > decCustomType = decode
 decode :: (Default a, Required a, WireMessage a) => ByteString -> Either String a
-decode bytes = case runGetOrFail getGroup bytes of
+decode bytes = case runGetOrFail getGroup (BSL.fromStrict bytes) of
     Left  (_, _, err) -> Left err
     Right (_, _, obj) -> Right obj
 
@@ -187,7 +188,7 @@ decode bytes = case runGetOrFail getGroup bytes of
 -- > encCustomType :: CustomType -> ByteString
 -- > encCustomType = encode
 encode :: (WireMessage a) => a -> ByteString
-encode obj = runPut (putGroup obj)
+encode obj = BSL.toStrict $ runPut (putGroup obj)
 
 
 -- | Decode a required bool field.
@@ -213,7 +214,7 @@ getBoolPacked = getPacked getBool
 getBytes :: Get ByteString
 getBytes = do
     len <- getVarInt
-    getLazyByteString len
+    getByteString len
 
 
 -- | Decode an optional bytes field.
@@ -359,7 +360,7 @@ getInt64Packed = getPacked getInt64
 getMessage :: (Default a, Required a, WireMessage a) => Get a
 getMessage = do
     bytes <- getBytes
-    case runGetOrFail getGroup bytes of
+    case runGetOrFail getGroup (BSL.fromStrict bytes) of
         Left  (_, _, err) -> fail err
         Right (_, _, obj) -> return obj
 
@@ -516,8 +517,8 @@ putBoolPacked = putPacked (putVarInt . boolToWord8)
 putBytes :: WireTag -> ByteString -> Put
 putBytes tag bs = do
     putWireTag tag
-    putVarInt $ BSL.length bs
-    putLazyByteString bs
+    putVarInt $ BS.length bs
+    putByteString bs
 
 
 -- | Encode a repeated bytes field.
@@ -783,7 +784,7 @@ putSInt64Packed = putPacked (putVarInt . ZZ.encode64)
 
 -- | Encode a required message field.
 putMessage :: WireMessage a => WireTag -> a -> Put
-putMessage tag a = putBytes tag $ runPut (putGroup a)
+putMessage tag a = putBytes tag $ BSL.toStrict $ runPut (putGroup a)
 
 
 -- | Encode a repeated message field.
@@ -871,7 +872,7 @@ getOpt = fmap Just
 getPacked :: Get a -> Get (Seq a)
 getPacked f = do
     bytes <- getBytes
-    case runGetOrFail (loop Seq.empty) bytes of
+    case runGetOrFail (loop Seq.empty) (BSL.fromStrict bytes) of
       Left  (_, _, err) -> fail err
       Right (_, _, obj) -> return obj
     where
@@ -940,7 +941,7 @@ putList f tag = mapM_ (f tag)
 putPacked :: (a -> Put) -> WireTag -> Seq a -> Put
 putPacked f tag xs
     | len == 0  = return ()
-    | otherwise = putBytes tag $ runPut (forM_ xs f)
+    | otherwise = putBytes tag $ BSL.toStrict $ runPut (forM_ xs f)
     where len = Seq.length xs
 
 
