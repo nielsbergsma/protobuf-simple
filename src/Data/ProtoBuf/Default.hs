@@ -11,15 +11,15 @@ module Data.ProtoBuf.Default
     ) where
 
 
-import Data.ByteString.Lazy (ByteString)
+import Data.ByteString (ByteString)
 import Data.Int (Int32, Int64)
 import Data.Sequence (Seq)
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Data.Word (Word32, Word64)
 
-import qualified Data.ByteString.Lazy as B
-import qualified Data.Sequence        as S
-import qualified Data.Text.Lazy       as T
+import qualified Data.ByteString as B
+import qualified Data.Sequence   as S
+import qualified Data.Text       as T
 
 
 -- | Typeclass to handle default values.
