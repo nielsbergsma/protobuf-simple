@@ -11,10 +11,10 @@ module Data.ProtoBuf.Mergeable
     ) where
 
 
-import Data.ByteString.Lazy (ByteString)
+import Data.ByteString (ByteString)
 import Data.Int (Int32, Int64)
 import Data.Sequence (Seq, (><))
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Data.Word (Word32, Word64)
 
 
